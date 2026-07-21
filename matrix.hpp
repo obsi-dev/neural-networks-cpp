@@ -1,25 +1,35 @@
+#pragma once
+
 #include <bits/stdc++.h>
 #include <math.h>
-#include <stdio.h>
+#include <iostream>
 #include <stdlib.h>
 #include <vector>
 
+#include "arena.hpp"
+
+typedef unsigned long long ull;
+
 using namespace std;
 
-class Matrix {
-  int rows, cols;
-  vector<float> data;
+class Matrix
+{
+public:
+    int rows, cols;
+    int size;
+    float *data;
 
-  Matrix(int r, int c) : rows(r), cols(c), data(r * c, 0.0f) {}
+    Matrix(int r, int c) : rows(r), cols(c), size(r * c), data() {}
 
-  float at(int r, int c);
+    float at(int r, int c) { return data[r * cols + c]; }
 };
 
-// float Matrix::at(int r, int c) {
-//   return data[r * cols + c];
-// }
+double power(double base, long long exp);
 
-Matrix MatrixMult(Matrix a, Matrix b, bool transpose_a, bool transpose_b);
-Matrix relu(Matrix);
-Matrix MatrixSum(Matrix a, Matrix b);
-void MatTranpose(Matrix a);
+Matrix* MatrixCreate(Arena* arena, int rows, int cols);
+Matrix* ReLU(Matrix* a);
+Matrix* softmax(Matrix* a);
+Matrix* MatrixSum(Matrix* a, Matrix* b);
+Matrix* MatrixTranspose(Matrix* a);
+Matrix* MatrixMult(Matrix* a, Matrix* b);
+Matrix* MatrixLoad(Arena* arena, ull rows, ull cols, const string filepath);

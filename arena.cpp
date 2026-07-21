@@ -8,6 +8,9 @@ using namespace std;
 #define ARENA_BASE_POS (sizeof(Arena))
 #define ARENA_ALIGN (sizeof(void*))
 
+#define PUSH_STRUCT(arena, T) (T*)arena_push((arena), sizeof(T))
+#define PUSH_ARRAY(arena, T, n) (T*)arena_push((arena), sizeof(T) * (n))
+
 typedef unsigned long long ull;
 
 template <unsigned_integral T>
