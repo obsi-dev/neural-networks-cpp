@@ -46,7 +46,7 @@ double power(double base, long long exp)
     return isNegative ? 1 / result : result;
 }
 
-Matrix *softmax(Matrix *a)
+Matrix *MatrixSoftmax(Matrix *a)
 {
     int rows = a->rows, cols = a->cols;
     Matrix *result = new Matrix(rows, cols);
@@ -62,6 +62,23 @@ Matrix *softmax(Matrix *a)
     for (int i = 0; i < rows * cols; i++)
     {
         result->data[i] /= temp;
+    }
+
+    return result;
+}
+
+Matrix* MatrixCrossEntropy(const Matrix* p, const Matrix* q) {
+    if(p->rows != q->rows || p->cols != q->cols) {
+        cout << "Matrix Cross Entropy: Mismatch of matrix dimensions, exiting...";
+        return nullptr;    
+    }  
+
+    Matrix* result = new Matrix(p->rows, p->cols);
+
+    ull size = (ull)(p->rows * p->cols);
+
+    for(int i = 0; i < size; i++) {
+        result->data[i] = p->data[i] == 0.0 ? 0.0 : -p->data[i] * log(q->data[i]);
     }
 
     return result;

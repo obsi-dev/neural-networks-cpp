@@ -48,7 +48,7 @@ void* arena_push(Arena* arena, ull size) {
 
     arena->pos = new_pos;
     
-    unsigned int* outptr = (unsigned int*)arena + aligned_pos;
+    char* outptr = (char*)arena + aligned_pos;
     return outptr;
 
 }
