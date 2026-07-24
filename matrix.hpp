@@ -26,10 +26,12 @@ public:
 
 double power(double base, long long exp);
 
-Matrix* MatrixCreate(Arena* arena, int rows, int cols);
-Matrix* ReLU(Matrix* a);
-Matrix* softmax(Matrix* a);
-Matrix* MatrixSum(Matrix* a, Matrix* b);
-Matrix* MatrixTranspose(Matrix* a);
-Matrix* MatrixMult(Matrix* a, Matrix* b);
-Matrix* MatrixLoad(Arena* arena, ull rows, ull cols, const string filepath);
+Matrix* matrix_create(Arena* arena, int rows, int cols);
+Matrix* matrix_relu(Arena* arena, Matrix* a);
+Matrix* matrix_softmax(Arena* arena, Matrix* a);
+Matrix* matrix_sum(Arena* arena, Matrix* a, Matrix* b);
+Matrix* matrix_transpose(Arena* arena, Matrix* a);
+Matrix* matrix_mult(Arena* arena, Matrix* a, Matrix* b);
+Matrix* matrix_load(Arena* arena, ull rows, ull cols, const string filepath);
+Matrix* matrix_add_bias(Arena* arena, Matrix* input, Matrix* bias);
+Matrix* matrix_cross_entropy(Arena* arena, const Matrix* p, const Matrix* q);

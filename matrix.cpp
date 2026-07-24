@@ -1,19 +1,20 @@
 #include "matrix.hpp"
 
-Matrix *MatrixCreate(Arena *arena, int rows, int cols)
+Matrix *matrix_create(Arena *arena, int rows, int cols)
 {
     Matrix *mat = PUSH_STRUCT(arena, Matrix);
     mat->rows = rows;
     mat->cols = cols;
+    mat->size = rows * cols;
     mat->data = PUSH_ARRAY(arena, float, (ull)(rows * cols));
 
     return mat;
 }
 
-Matrix *ReLU(Matrix *a)
+Matrix *matrix_relu(Arena* arena, Matrix* a)
 {
     int rows = a->rows, cols = a->cols;
-    Matrix *result = new Matrix(rows, cols);
+    Matrix *result = matrix_create(arena, rows, cols);
     for (int i = 0; i < rows * cols; i++)
     {
         result->data[i] = a->data[i] > 0 ? a->data[i] : 0.0;
@@ -46,10 +47,10 @@ double power(double base, long long exp)
     return isNegative ? 1 / result : result;
 }
 
-Matrix *MatrixSoftmax(Matrix *a)
+Matrix *matrix_softmax(Arena* arena, Matrix *a)
 {
     int rows = a->rows, cols = a->cols;
-    Matrix *result = new Matrix(rows, cols);
+    Matrix *result = matrix_create(arena, rows, cols);
 
     double temp = 0.0;
 
@@ -67,13 +68,13 @@ Matrix *MatrixSoftmax(Matrix *a)
     return result;
 }
 
-Matrix* MatrixCrossEntropy(const Matrix* p, const Matrix* q) {
+Matrix* matrix_cross_entropy(Arena* arena, const Matrix* p, const Matrix* q) {
     if(p->rows != q->rows || p->cols != q->cols) {
         cout << "Matrix Cross Entropy: Mismatch of matrix dimensions, exiting...";
         return nullptr;    
     }  
 
-    Matrix* result = new Matrix(p->rows, p->cols);
+    Matrix* result = matrix_create(arena, p->rows, p->cols);
 
     ull size = (ull)(p->rows * p->cols);
 
@@ -84,12 +85,26 @@ Matrix* MatrixCrossEntropy(const Matrix* p, const Matrix* q) {
     return result;
 }
 
-Matrix *MatrixSum(Matrix *a, Matrix *b)
+Matrix* matrix_add_bias(Arena* arena, Matrix* input, Matrix* bias) {
+    if(input->cols != bias->cols) return nullptr;
+
+    Matrix* result = matrix_create(arena, input->rows, input->cols);
+    
+    for(int i = 0; i < input->rows; i++) {
+        for(int j = 0; j < input->cols; j++) {
+            result->data[i * input->cols + j] = input->data[i * input->cols + j] + bias->data[j];
+        }
+    }
+
+    return result;
+}
+
+Matrix *matrix_sum(Arena* arena, Matrix *a, Matrix *b)
 {
     if (a->rows != b->rows || a->cols != b->cols)
         return nullptr;
 
-    Matrix *result = new Matrix(a->rows, a->cols);
+    Matrix *result = matrix_create(arena, a->rows, a->cols);
 
     for (int i = 0; i < a->rows * a->cols; i++)
     {
@@ -98,25 +113,25 @@ Matrix *MatrixSum(Matrix *a, Matrix *b)
     return result;
 }
 
-Matrix *MatrixTranspose(Matrix *a)
+Matrix *matrix_transpose(Arena* arena, Matrix *a)
 {
-    Matrix *result = new Matrix(a->cols, a->rows);
+    Matrix *result = matrix_create(arena, a->cols, a->rows);
     for (int r = 0; r < a->rows; r++)
     {
         for (int c = 0; c < a->cols; c++)
         {
-            result->data[r * result->cols + c] = a->data[c * a->cols + r];
+            result->data[c * result->cols + r] = a->data[r * a->cols + c];
         }
     }
     return result;
 }
 
-Matrix *MatrixMult(Matrix *a, Matrix *b)
+Matrix *matrix_mult(Arena* arena, Matrix *a, Matrix *b)
 {
     if (a->cols != b->rows)
         return nullptr;
 
-    Matrix *result = new Matrix(a->rows, b->cols);
+    Matrix *result = matrix_create(arena, a->rows, b->cols);
 
     int a_rows = a->rows, a_cols = a->cols, b_cols = b->cols;
 
@@ -134,9 +149,9 @@ Matrix *MatrixMult(Matrix *a, Matrix *b)
     return result;
 }
 
-Matrix *MatrixLoad(Arena *arena, ull rows, ull cols, const string filepath)
+Matrix *matrix_load(Arena *arena, ull rows, ull cols, const string filepath)
 {
-    Matrix* mat = MatrixCreate(arena, rows, cols);
+    Matrix* mat = matrix_create(arena, rows, cols);
 
     ifstream matfile(filepath, ios::binary);
 
