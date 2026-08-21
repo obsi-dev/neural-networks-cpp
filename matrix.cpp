@@ -172,3 +172,37 @@ Matrix *matrix_load(Arena *arena, ull rows, ull cols, const string filepath)
 
     return mat;
 }
+
+Matrix* matrix_relu_grad(Arena* arena, Matrix* layer_input, Matrix* grad_output) {
+    if(layer_input->rows != grad_output->rows || layer_input->cols != grad_output->cols) {
+        cout << "Matrix ReLU Grad: Mismatch of matrix dimensions, exiting...";
+        return nullptr;    
+    }
+
+    Matrix* result = matrix_create(arena, grad_output->rows, grad_output->cols);
+
+    ull size = (ull)(grad_output->rows * grad_output->cols);
+
+    for(int i = 0; i < size; i++) {
+        result->data[i] = layer_input->data[i] > 0 ? grad_output->data[i] : 0.0;
+    }
+
+    return result;
+}
+
+Matrix* matrix_cross_entropy_grad(Arena* arena, Matrix* predictions, Matrix* labels) {
+    if(predictions->rows != labels->rows || predictions->cols != labels->cols) {
+        cout << "Matrix Cross Entropy Grad: Mismatch of matrix dimensions, exiting...";
+        return nullptr;    
+    }
+
+    Matrix* result = matrix_create(arena, predictions->rows, predictions->cols);
+
+    ull size = (ull)(predictions->rows * predictions->cols);
+
+    for(int i = 0; i < size; i++) {
+        result->data[i] = predictions->data[i] - labels->data[i];
+    }
+
+    return result;
+}

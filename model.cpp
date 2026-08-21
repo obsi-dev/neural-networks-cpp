@@ -41,8 +41,8 @@ void init_layer(Layer* layer, Arena* arena) {
             layer->weights->data[i] = ((float)rand() / RAND_MAX * 2 - 1) * scale;
         }
 
-        for(int i = 0; i < layer->weights->size; i++) {
-            layer->weights->data[i] = 0.0f;
+        for(int i = 0; i < layer->biases->size; i++) {
+            layer->biases->data[i] = 0.0f;
         }
     }
 
@@ -96,7 +96,15 @@ Matrix* layer_forward(Arena* arena, Layer* layer, Matrix* input) {
     return output;
 }
 
-Matrix* layer_backward(Arena* arena, Layer* layer, Matrix* grad_output);
+Matrix* layer_backward(Arena* arena, Layer* layer, Matrix* grad_output) {
+    Matrix* grad_input = nullptr;
+
+    if(layer->type == LayerType::Dense) {
+        Matrix* input_t = matrix_transpose(arena, layer->input);
+        layer->dweights = matrix_mult(arena, input_t, grad_output);
+        assert(layer->dweights && "dweights: matrix_mult failed...");
+    }
+}
 
 Model* model_create(Arena* arena, int num_layers) {
     Model* model = PUSH_STRUCT(arena, Model);
