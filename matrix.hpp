@@ -37,3 +37,5 @@ Matrix* matrix_add_bias(Arena* arena, Matrix* input, Matrix* bias);
 Matrix* matrix_cross_entropy(Arena* arena, const Matrix* p, const Matrix* q);
 Matrix* matrix_relu_grad(Arena* arena, Matrix* layer_input, Matrix* grad_output);
 Matrix* matrix_cross_entropy_grad(Arena* arena, Matrix* predictions, Matrix* labels);
+Matrix* matrix_sum_rows(Arena* arena, Matrix* a);
+void matrix_clip_inplace(Matrix* a, float max_abs);

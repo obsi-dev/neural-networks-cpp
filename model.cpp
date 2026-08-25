@@ -29,6 +29,12 @@ Layer* add_layer_relu(Arena* arena, Model* model, int size) {
     return layer;
 }
 
+Layer* add_layer_softmax(Arena* arena, Model* model, int size) {
+    Layer* layer = model_add_layer(model, LayerType::Softmax, size, size);
+    init_layer(layer, arena);
+    return layer;
+}
+
 void init_layer(Layer* layer, Arena* arena) {
     if (layer->type == LayerType::Dense) {
         //xavier init weights and 0 init biases soon
@@ -64,9 +70,6 @@ void init_layer(Layer* layer, Arena* arena) {
 
 Matrix* layer_forward(Arena* arena, Layer* layer, Matrix* input) {
     layer->input = input;
-    if(layer->output) {
-        layer->output = nullptr;
-    }
 
     Matrix* output = nullptr;
     if (layer->type == LayerType::Dense) {
@@ -103,7 +106,31 @@ Matrix* layer_backward(Arena* arena, Layer* layer, Matrix* grad_output) {
         Matrix* input_t = matrix_transpose(arena, layer->input);
         layer->dweights = matrix_mult(arena, input_t, grad_output);
         assert(layer->dweights && "dweights: matrix_mult failed...");
+        
+        layer->dbiases = matrix_sum_rows(arena, grad_output);
+        assert(layer->dbiases && "dbiases: matrix_sum_row failed...");
+
+        Matrix* weights_t = matrix_transpose(arena, layer->weights);
+        grad_input = matrix_mult(arena, grad_output, weights_t);
+        assert(grad_input && "grad_input: matrix_mult failed...");
     }
+
+    else if(layer->type == LayerType::ReLU) {
+        grad_input = matrix_relu_grad(arena, layer->input, grad_output);
+        assert(grad_input && "matrix_relu_grad failed...");
+    }
+
+    else if(layer->type == LayerType::Softmax) {
+        //already accounted for in matrix_relu_grad
+        grad_input = grad_output;
+    }
+
+    else {
+        cout << "Unknown layer type, terminating...";
+        exit(1);
+    }
+
+    return grad_input;
 }
 
 Model* model_create(Arena* arena, int num_layers) {
@@ -124,4 +151,33 @@ Matrix* model_forward(Arena* arena, Model* model, Matrix* input) {
     return a;
 }
 
-Matrix* model_backward(Arena* arena, Model* model, Matrix* grad_loss, float learning_rate);
+Matrix* model_backward(Arena* arena, Model* model, Matrix* labels, float learning_rate) {
+    Layer* last_layer = &model->layers[model->num_layers - 1];
+    
+    //last layer is assumed to be softmax
+
+    Matrix* grad = matrix_cross_entropy_grad(arena, last_layer->output, labels);
+    assert(grad && "model_backward: initial grad failed");
+
+    for(int i = model->num_layers - 1; i >= 0; i--) {
+        Layer* layer = &model->layers[i];
+        grad = layer_backward(arena, layer, grad);
+        assert(grad && "model_backward: layer_backward failed");
+
+        if(layer->type == LayerType::Dense) {
+            matrix_clip_inplace(layer->dweights, 5.0f);
+            matrix_clip_inplace(layer->dbiases, 5.0f);
+
+            float batch_size = (float)layer->input->rows; 
+            for(int k = 0; k < layer->weights->size; k++) {
+                layer->weights->data[k] -= learning_rate * (layer->dweights->data[k] / batch_size);
+            }
+            
+            for(int k = 0; k < layer->biases->size; k++) {
+                layer->biases->data[k] -= learning_rate * (layer->dbiases->data[k] / batch_size);
+            }
+        }
+    }
+
+    return grad;
+}

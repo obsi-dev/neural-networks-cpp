@@ -52,17 +52,24 @@ Matrix *matrix_softmax(Arena* arena, Matrix *a)
     int rows = a->rows, cols = a->cols;
     Matrix *result = matrix_create(arena, rows, cols);
 
-    double temp = 0.0;
+    for(int row = 0; row < rows; row++) {
+        float row_max = a->data[row * cols];
 
-    for (int i = 0; i < rows * cols; i++)
-    {
-        result->data[i] = expf(a->data[i]);
-        temp += result->data[i];
-    }
+        for(int col = 1; col < cols; col++) {
+            row_max = max(row_max, a->data[row * cols + col]);
+        }
 
-    for (int i = 0; i < rows * cols; i++)
-    {
-        result->data[i] /= temp;
+        float row_sum = 0.0f;
+
+        for(int col = 0; col < cols; col++) {
+            float temp = expf(a->data[row * cols + col] - row_max);
+            result->data[row * cols + col] = temp;
+            row_sum += temp;
+        }
+
+        for(int col = 0; col < cols; col++) {
+            result->data[row * cols + col] /= row_sum;
+        }
     }
 
     return result;
@@ -75,11 +82,13 @@ Matrix* matrix_cross_entropy(Arena* arena, const Matrix* p, const Matrix* q) {
     }  
 
     Matrix* result = matrix_create(arena, p->rows, p->cols);
-
     ull size = (ull)(p->rows * p->cols);
 
+    const float epsilon = 1e-7f;
+
     for(int i = 0; i < size; i++) {
-        result->data[i] = p->data[i] == 0.0 ? 0.0 : -p->data[i] * log(q->data[i]);
+        float q_clipped = max(epsilon, min(q->data[i], 1.0f - epsilon));
+        result->data[i] = p->data[i] == 0.0 ? 0.0 : -p->data[i] * log(q_clipped);
     }
 
     return result;
@@ -205,4 +214,27 @@ Matrix* matrix_cross_entropy_grad(Arena* arena, Matrix* predictions, Matrix* lab
     }
 
     return result;
+}
+
+Matrix* matrix_sum_rows(Arena* arena, Matrix* a) {
+    Matrix* result = matrix_create(arena, 1, a->cols);
+
+    for(int c = 0; c < a->cols; c++) {
+        float col_sum = 0.0f;
+
+        for(int r = 0; r < a->rows; r++) {
+            col_sum += a->data[r * a->cols + c];
+        }
+
+        result->data[c] = col_sum;
+    }
+    
+    return result;
+}
+
+void matrix_clip_inplace(Matrix* a, float max_abs) {
+    for(int i = 0; i < a->size; i++) {
+        if(a->data[i] > max_abs) a->data[i] = max_abs;
+        else if(a->data[i] < -max_abs) a->data[i] = -max_abs;
+    }
 }

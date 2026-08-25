@@ -47,10 +47,11 @@ Matrix* layer_backward(Arena* arena, Layer* layer, Matrix* grad_output);
 Model* model_create(Arena* arena, int num_layers);
 
 Matrix* model_forward(Arena* arena, Model* model, Matrix* input);
-Matrix* model_backward(Arena* arena, Model* model, Matrix* grad_loss, float learning_rate);
+Matrix* model_backward(Arena* arena, Model* model, Matrix* labels, float learning_rate);
 
 void init_layer(Layer* layer, Arena* arena);
 
 Layer* model_add_layer(Model* model, LayerType type, int in_size, int out_size);
 Layer* add_layer_dense(Arena* arena, Model* model, int in_size, int out_size);
 Layer* add_layer_relu(Arena* arena, Model* model, int size);
+Layer* add_layer_softmax(Arena* arena, Model* model, int size);
