@@ -79,37 +79,37 @@ int main() {
 
       model_backward(scratch_arena, model, batch_labels, learning_rate);
 
-      if (b == 0) {
-        Layer *relu_layer = &model->layers[1];
-        int dead_count = 0;
-        for (int j = 0; j < relu_layer->output->cols; j++) {
-          bool all_zero = true;
-          for (int r = 0; r < relu_layer->output->rows; r++) {
-            if (relu_layer->output->data[r * relu_layer->output->cols + j] >
-                0) {
-              all_zero = false;
-              break;
-            }
-          }
-          if (all_zero)
-            dead_count++;
-        }
-
-        float w1_abs_sum = 0.0f;
-        for (int k = 0; k < model->layers[0].weights->size; k++)
-          w1_abs_sum += fabs(model->layers[0].weights->data[k]);
-
-        float w2_abs_sum = 0.0f;
-        for (int k = 0; k < model->layers[2].weights->size; k++)
-          w2_abs_sum += fabs(model->layers[2].weights->data[k]);
-
-        cout << "  epoch " << e << " diag: dead_relu=" << dead_count << "/"
-             << relu_layer->output->cols << " |W1|_sum=" << w1_abs_sum
-             << " |W2|_sum=" << w2_abs_sum << endl;
-      }
+      // if (b == 0) {
+      //   Layer *relu_layer = &model->layers[1];
+      //   int dead_count = 0;
+      //   for (int j = 0; j < relu_layer->output->cols; j++) {
+      //     bool all_zero = true;
+      //     for (int r = 0; r < relu_layer->output->rows; r++) {
+      //       if (relu_layer->output->data[r * relu_layer->output->cols + j] >
+      //           0) {
+      //         all_zero = false;
+      //         break;
+      //       }
+      //     }
+      //     if (all_zero)
+      //       dead_count++;
+      //   }
+      //
+      //   float w1_abs_sum = 0.0f;
+      //   for (int k = 0; k < model->layers[0].weights->size; k++)
+      //     w1_abs_sum += fabs(model->layers[0].weights->data[k]);
+      //
+      //   float w2_abs_sum = 0.0f;
+      //   for (int k = 0; k < model->layers[2].weights->size; k++)
+      //     w2_abs_sum += fabs(model->layers[2].weights->data[k]);
+      //
+      //   cout << "  epoch " << e << " diag: dead_relu=" << dead_count << "/"
+      //        << relu_layer->output->cols << " |W1|_sum=" << w1_abs_sum
+      //        << " |W2|_sum=" << w2_abs_sum << endl;
+      // }
     }
 
-    cout << "Epoch " << e << "| average loss: " << (epoch_loss / num_batches)
+    cout << "Epoch " << e << " | Average Loss: " << (epoch_loss / num_batches)
          << endl;
   }
 
