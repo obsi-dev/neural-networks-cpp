@@ -13,16 +13,26 @@ fi
 
 echo ""
 
-echo "Compiling C++ files..."
-g++ -std=c++20 -O2 -w arena.cpp \
-    matrix.cpp \
-    model.cpp \
-    main.cpp \
-    -o train
+BACKEND="${1:-cpu}" # ./run.sh -> CPU build, ./run.sh cuda -> GPU build
+
+echo "Compiling C++ files ($BACKEND)..."
+if [[ "$BACKEND" == "cuda" ]]; then
+    nvcc -std=c++17 -O2 -w -arch=native -DUSE_CUDA arena.cpp \
+        matrix.cu \
+        model.cpp \
+        main.cpp \
+        -o train
+else
+    g++ -std=c++20 -O2 -w arena.cpp \
+        matrix.cpp \
+        model.cpp \
+        main.cpp \
+        -o train
+fi
 echo "Done."
 
 echo ""
 
-echo "Running training..."
+echo "Running..."
 
 ./train

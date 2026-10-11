@@ -37,21 +37,37 @@ Layer *add_layer_softmax(Arena *arena, Model *model, int size) {
   return layer;
 }
 
+// Fills an already-allocated dense layer with random weights / constant biases.
+// Values are generated in a temporary host buffer from the arena, copied in,
+// and the buffer is popped again (host-only push, so pop_to is exact).
+static void dense_fill_params(Arena *arena, Layer *layer) {
+  ull saved_pos = arena->pos;
+
+  float *w = PUSH_ARRAY(arena, float, layer->weights->size);
+  float *b = PUSH_ARRAY(arena, float, layer->biases->size);
+
+  float scale = sqrtf(2.0f / layer->in_size);
+
+  for (int i = 0; i < layer->weights->size; i++) {
+    w[i] = ((float)rand() / RAND_MAX * 2 - 1) * scale;
+  }
+
+  for (int i = 0; i < layer->biases->size; i++) {
+    b[i] = 0.01f;
+  }
+
+  matrix_copy_from_host(layer->weights, w);
+  matrix_copy_from_host(layer->biases, b);
+
+  arena_pop_to(arena, saved_pos);
+}
+
 void init_layer(Layer *layer, Arena *arena) {
   if (layer->type == LayerType::Dense) {
     // xavier init weights and 0 init biases soon
     layer->weights = matrix_create(arena, layer->in_size, layer->out_size);
     layer->biases = matrix_create(arena, 1, layer->out_size);
-
-    float scale = sqrtf(2.0f / layer->in_size);
-
-    for (int i = 0; i < layer->weights->size; i++) {
-      layer->weights->data[i] = ((float)rand() / RAND_MAX * 2 - 1) * scale;
-    }
-
-    for (int i = 0; i < layer->biases->size; i++) {
-      layer->biases->data[i] = 0.01f;
-    }
+    dense_fill_params(arena, layer);
   }
 
   else if (layer->type == LayerType::ReLU) {
@@ -170,24 +186,14 @@ Matrix *model_backward(Arena *arena, Model *model, Matrix *labels,
     if (layer->type == LayerType::Dense) {
       float batch_size = (float)layer->input->rows;
 
-      for (int k = 0; k < layer->dweights->size; k++) {
-        layer->dweights->data[k] /= batch_size;
-      }
-
-      for (int k = 0; k < layer->dbiases->size; k++) {
-        layer->dbiases->data[k] /= batch_size;
-      }
+      matrix_scale_inplace(layer->dweights, 1.0f / batch_size);
+      matrix_scale_inplace(layer->dbiases, 1.0f / batch_size);
 
       matrix_clip_inplace(layer->dweights, 1.0f);
       matrix_clip_inplace(layer->dbiases, 1.0f);
 
-      for (int k = 0; k < layer->weights->size; k++) {
-        layer->weights->data[k] -= learning_rate * layer->dweights->data[k];
-      }
-
-      for (int k = 0; k < layer->biases->size; k++) {
-        layer->biases->data[k] -= learning_rate * layer->dbiases->data[k];
-      }
+      matrix_sgd_update(layer->weights, layer->dweights, learning_rate);
+      matrix_sgd_update(layer->biases, layer->dbiases, learning_rate);
     }
   }
 
@@ -200,15 +206,21 @@ float evaluate_accuracy(Arena *arena, Model *model, Matrix *inputs,
 
   Matrix *predictions = model_forward(arena, model, inputs);
 
+  // host copies of predictions and labels (temporary, freed with the arena)
+  float *pred = PUSH_ARRAY(arena, float, predictions->size);
+  float *lbl = PUSH_ARRAY(arena, float, labels->size);
+  matrix_copy_to_host(predictions, pred);
+  matrix_copy_to_host(labels, lbl);
+
   int correct = 0;
 
   for (int i = 0; i < predictions->rows; i++) {
     int predicted = 0;
-    float best = predictions->data[i * 10];
+    float best = pred[i * 10];
 
     for (int j = 1; j < 10; j++) {
-      if (predictions->data[i * 10 + j] > best) {
-        best = predictions->data[i * 10 + j];
+      if (pred[i * 10 + j] > best) {
+        best = pred[i * 10 + j];
         predicted = j;
       }
     }
@@ -216,7 +228,7 @@ float evaluate_accuracy(Arena *arena, Model *model, Matrix *inputs,
     int actual = 0;
 
     for (int j = 0; j < 10; j++) {
-      if (labels->data[i * 10 + j] == 1.0f) {
+      if (lbl[i * 10 + j] == 1.0f) {
         actual = j;
         break;
       }
@@ -227,4 +239,91 @@ float evaluate_accuracy(Arena *arena, Model *model, Matrix *inputs,
   }
 
   return 100.0f * (correct / (float)predictions->rows);
+}
+
+void model_reset_params(Arena *arena, Model *model) {
+  for (int i = 0; i < model->num_layers; i++) {
+    if (model->layers[i].type == LayerType::Dense)
+      dense_fill_params(arena, &model->layers[i]);
+  }
+}
+
+// ---------------- save / load ----------------
+// The file is just the raw float32 parameters of every Dense layer, in layer
+// order: W1 | b1 | W2 | b2 | ... The architecture comes from the code, so the
+// only check needed on load is that the file has exactly the right size.
+
+bool model_save(Arena *scratch, const Model *model, const string &path) {
+  ofstream out(path, ios::binary);
+  if (!out.is_open()) {
+    cout << "model_save: failed to open " << path << endl;
+    return false;
+  }
+
+  ull saved_pos = scratch->pos;
+
+  for (int i = 0; i < model->num_layers; i++) {
+    Layer *layer = &model->layers[i];
+    if (layer->type != LayerType::Dense)
+      continue;
+
+    float *w = PUSH_ARRAY(scratch, float, layer->weights->size);
+    float *b = PUSH_ARRAY(scratch, float, layer->biases->size);
+    matrix_copy_to_host(layer->weights, w);
+    matrix_copy_to_host(layer->biases, b);
+    out.write((const char *)w, sizeof(float) * layer->weights->size);
+    out.write((const char *)b, sizeof(float) * layer->biases->size);
+  }
+
+  arena_pop_to(scratch, saved_pos);
+
+  out.close();
+  if (out.fail()) {
+    cout << "model_save: write failed" << endl;
+    return false;
+  }
+
+  return true;
+}
+
+bool model_load(Arena *scratch, Model *model, const string &path) {
+  ifstream in(path, ios::binary | ios::ate); // open positioned at the end
+  if (!in.is_open()) {
+    return false;
+  }
+
+  ull expected_size = 0;
+  for (int i = 0; i < model->num_layers; i++) {
+    Layer *layer = &model->layers[i];
+    if (layer->type == LayerType::Dense)
+      expected_size +=
+          sizeof(float) * (layer->weights->size + layer->biases->size);
+  }
+
+  ull file_size = (ull)in.tellg();
+  if (file_size != expected_size) {
+    cout << "model_load: expected " << expected_size << " bytes, file has "
+         << file_size << endl;
+    return false;
+  }
+
+  in.seekg(0, ios::beg);
+
+  ull saved_pos = scratch->pos;
+
+  for (int i = 0; i < model->num_layers; i++) {
+    Layer *layer = &model->layers[i];
+    if (layer->type != LayerType::Dense)
+      continue;
+
+    float *w = PUSH_ARRAY(scratch, float, layer->weights->size);
+    float *b = PUSH_ARRAY(scratch, float, layer->biases->size);
+    in.read((char *)w, sizeof(float) * layer->weights->size);
+    in.read((char *)b, sizeof(float) * layer->biases->size);
+    matrix_copy_from_host(layer->weights, w);
+    matrix_copy_from_host(layer->biases, b);
+  }
+
+  arena_pop_to(scratch, saved_pos);
+  return true;
 }

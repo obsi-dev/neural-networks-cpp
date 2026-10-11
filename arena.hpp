@@ -29,6 +29,9 @@ class Arena {
 Arena* arena_create(ull capacity);
 void arena_destroy(Arena* arena);
 void* arena_push(Arena* arena, ull size);
+// Memory for matrix data. Same as arena_push here; the CUDA build returns GPU
+// memory instead. PUSH_STRUCT / PUSH_ARRAY always return host memory.
+void* arena_push_data(Arena* arena, ull size);
 void arena_pop(Arena* arena, ull size);
 void arena_pop_to(Arena* arena, ull pos);
 void arena_clear(Arena* arena);

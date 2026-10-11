@@ -61,3 +61,11 @@ Layer *add_layer_softmax(Arena *arena, Model *model, int size);
 
 float evaluate_accuracy(Arena *arena, Model *model, Matrix *inputs,
                         Matrix *labels);
+
+// Re-randomise all dense layer params in place (for "retrain from scratch").
+// arena is only used for temporary host staging.
+void model_reset_params(Arena *arena, Model *model);
+
+// Save / load weights and biases. scratch is used for temporary host buffers.
+bool model_save(Arena *scratch, const Model *model, const string &path);
+bool model_load(Arena *scratch, Model *model, const string &path);

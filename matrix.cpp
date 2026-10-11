@@ -6,7 +6,7 @@ Matrix *matrix_create(Arena *arena, int rows, int cols)
     mat->rows = rows;
     mat->cols = cols;
     mat->size = rows * cols;
-    mat->data = PUSH_ARRAY(arena, float, (ull)(rows * cols));
+    mat->data = (float*)arena_push_data(arena, sizeof(float) * (ull)rows * cols);
 
     return mat;
 }
@@ -237,4 +237,31 @@ void matrix_clip_inplace(Matrix* a, float max_abs) {
         if(a->data[i] > max_abs) a->data[i] = max_abs;
         else if(a->data[i] < -max_abs) a->data[i] = -max_abs;
     }
+}
+
+void matrix_copy_to_host(const Matrix* m, float* host_dst) {
+    memcpy(host_dst, m->data, sizeof(float) * (ull)m->size);
+}
+
+void matrix_copy_from_host(Matrix* m, const float* host_src) {
+    memcpy(m->data, host_src, sizeof(float) * (ull)m->size);
+}
+
+void matrix_copy_rows(Matrix* dst, const Matrix* src, int start_row) {
+    // rows are contiguous in row-major storage, so this is one block copy
+    memcpy(dst->data, src->data + (ull)start_row * src->cols, sizeof(float) * (ull)dst->size);
+}
+
+float matrix_sum_all(Arena* arena, const Matrix* a) {
+    float sum = 0.0f;
+    for(int i = 0; i < a->size; i++) sum += a->data[i];
+    return sum;
+}
+
+void matrix_scale_inplace(Matrix* a, float s) {
+    for(int i = 0; i < a->size; i++) a->data[i] *= s;
+}
+
+void matrix_sgd_update(Matrix* w, const Matrix* dw, float lr) {
+    for(int i = 0; i < w->size; i++) w->data[i] -= lr * dw->data[i];
 }
